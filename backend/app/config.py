@@ -122,7 +122,7 @@ class Settings(BaseSettings):
     
     # MongoDB settings
     MONGODB_URL: str = "mongodb://localhost:27017"
-    MONGODB_DB: str = "sitechat"
+    MONGODB_DB: str = "SiteChat"
     
     # PostgreSQL settings
     POSTGRESQL_URL: Optional[str] = None
