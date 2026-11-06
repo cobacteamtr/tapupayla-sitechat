@@ -1,11 +1,10 @@
 """
-Vector store operations using FAISS.
+Vector store operations using FAISS and remote Hugging Face Inference API.
 """
 import os
-import pickle
 from typing import List, Dict, Optional
 from langchain_community.vectorstores import FAISS
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceHubEmbeddings
 from langchain_core.documents import Document
 from loguru import logger
 
@@ -13,7 +12,7 @@ from app.config import settings
 
 
 class VectorStore:
-    """FAISS vector store with HuggingFace embeddings."""
+    """FAISS vector store with remote Hugging Face Hub embeddings."""
     
     def __init__(self):
         self.embeddings = None
@@ -22,7 +21,7 @@ class VectorStore:
         self.index_path = os.path.join(settings.CHROMA_PERSIST_DIR, "faiss_index")
     
     def initialize(self):
-        """Initialize the vector store and embeddings."""
+        """Initialize the vector store and remote embeddings."""
         if self._initialized:
             return
         
@@ -30,12 +29,13 @@ class VectorStore:
             # Create directories
             os.makedirs(settings.CHROMA_PERSIST_DIR, exist_ok=True)
             
-            # Initialize embeddings (HuggingFace - runs locally)
-            logger.info("Loading embedding model...")
-            self.embeddings = HuggingFaceEmbeddings(
-                model_name="sentence-transformers/all-MiniLM-L6-v2",
-                model_kwargs={'device': 'cpu'},
-                encode_kwargs={'normalize_embeddings': True}
+            # Initialize remote embeddings (No local PyTorch / lightweight memory footprint)
+            logger.info("Initializing remote Hugging Face embeddings API...")
+            hf_token = os.getenv("HUGGINGFACEHUB_API_TOKEN")
+            
+            self.embeddings = HuggingFaceHubEmbeddings(
+                model="sentence-transformers/all-MiniLM-L6-v2",
+                huggingfacehub_api_token=hf_token
             )
             
             # Try to load existing index
@@ -77,12 +77,8 @@ class VectorStore:
             if not documents:
                 return []
             
-            # Add documents
             ids = self.vector_store.add_documents(documents)
-            
-            # Save to disk
             self._save_index()
-            
             logger.info(f"Added {len(documents)} documents to vector store")
             return ids
         except Exception as e:
@@ -102,16 +98,12 @@ class VectorStore:
         k = k or settings.RETRIEVAL_K
         
         try:
-            # FAISS doesn't support filtering directly, so we fetch more and filter
             results = self.vector_store.similarity_search(query, k=k)
-            
-            # Apply filter if provided
             if filter:
                 results = [
                     doc for doc in results
                     if all(doc.metadata.get(key) == value for key, value in filter.items())
                 ]
-            
             return results
         except Exception as e:
             logger.error(f"Similarity search failed: {e}")
@@ -131,14 +123,11 @@ class VectorStore:
         
         try:
             results = self.vector_store.similarity_search_with_score(query, k=k)
-            
-            # Apply filter if provided
             if filter:
                 results = [
                     (doc, score) for doc, score in results
                     if all(doc.metadata.get(key) == value for key, value in filter.items())
                 ]
-            
             return results
         except Exception as e:
             logger.error(f"Similarity search with score failed: {e}")
@@ -148,15 +137,8 @@ class VectorStore:
         """Delete documents by metadata filter."""
         if not self._initialized:
             self.initialize()
-        
-        try:
-            # FAISS doesn't have native delete, so we rebuild without matching docs
-            # This is a workaround - for production, consider using a different vector store
-            logger.warning("FAISS delete_by_metadata is not fully supported, skipping")
-            return False
-        except Exception as e:
-            logger.error(f"Failed to delete documents: {e}")
-            return False
+        logger.warning("FAISS delete_by_metadata is not fully supported, skipping")
+        return False
     
     def clear_collection(self):
         """Clear all documents from the collection."""
@@ -164,19 +146,16 @@ class VectorStore:
             self.initialize()
         
         try:
-            # Remove the index file and reinitialize
             if os.path.exists(self.index_path):
                 import shutil
                 shutil.rmtree(self.index_path, ignore_errors=True)
             
-            # Reinitialize with empty index
             self.vector_store = FAISS.from_texts(
                 ["Initial document"],
                 self.embeddings,
                 metadatas=[{"source": "init"}]
             )
             self._save_index()
-            
             logger.info("Cleared vector store collection")
         except Exception as e:
             logger.error(f"Failed to clear collection: {e}")
