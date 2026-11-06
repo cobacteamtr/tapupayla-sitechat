@@ -54,6 +54,7 @@ loguru>=0.7.2
 # ===========================================
 
 # LLM Providers (optional - install if using)
+langchain-groq>=0.1.0          # For Groq LLM
 # langchain-openai>=0.1.0          # For OpenAI/Azure LLM
 # langchain-anthropic>=0.1.0       # For Anthropic Claude
 

@@ -15,12 +15,23 @@ def get_llm():
     """
     Factory for LLM - returns LangChain chat model based on config.
     
-    Supported providers: ollama, openai, anthropic, azure
+    Supported providers: groq, ollama, openai, anthropic, azure
     """
     provider = settings.LLM_PROVIDER
     logger.info(f"Initializing LLM provider: {provider}")
     
-    if provider == "openai":
+    if provider == "groq":
+        from langchain_groq import ChatGroq
+        if not settings.GROQ_API_KEY:
+            raise ValueError("GROQ_API_KEY is required for Groq provider")
+        return ChatGroq(
+            model=settings.LLM_MODEL,
+            api_key=settings.GROQ_API_KEY,
+            temperature=settings.LLM_TEMPERATURE,
+            max_tokens=settings.LLM_MAX_TOKENS
+        )
+
+    elif provider == "openai":
         from langchain_openai import ChatOpenAI
         if not settings.OPENAI_API_KEY:
             raise ValueError("OPENAI_API_KEY is required for OpenAI provider")

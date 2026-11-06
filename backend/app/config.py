@@ -71,7 +71,7 @@ class Settings(BaseSettings):
     # ===========================================
     # LLM Provider Configuration
     # ===========================================
-    LLM_PROVIDER: Literal["ollama", "openai", "anthropic", "azure"] = "ollama"
+    LLM_PROVIDER: Literal["ollama", "openai", "anthropic", "azure", "groq"] = "ollama"
     LLM_MODEL: str = "llama3.1:8b"
     LLM_TEMPERATURE: float = 0.7
     LLM_MAX_TOKENS: int = 1000
@@ -79,6 +79,7 @@ class Settings(BaseSettings):
     OLLAMA_NUM_CTX: int = 4096
     
     # Provider-specific API keys
+    GROQ_API_KEY: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None
     ANTHROPIC_API_KEY: Optional[str] = None
     AZURE_OPENAI_ENDPOINT: Optional[str] = None
