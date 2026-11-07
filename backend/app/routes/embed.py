@@ -142,6 +142,14 @@ async def crawl_and_index_site(url: str, site_id: str, max_pages: int = 50):
         if job_id:
             await mongodb.update_crawl_job(job_id, status="failed", error=str(e))
 
+def _get_base_url(request: Request) -> str:
+    return (
+        os.getenv("BASE_URL")
+        or os.getenv("API_URL")
+        or getattr(settings, "BASE_URL", None)
+        or getattr(settings, "SITE_URL", None)
+        or str(request.base_url).rstrip("/")
+    )
 
 @router.post("/setup", response_model=SetupResponse)
 async def setup_chatbot(
