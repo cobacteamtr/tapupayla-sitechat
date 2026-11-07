@@ -14,7 +14,13 @@ class Settings(BaseSettings):
     APP_NAME: str = "SiteChat"
     DEBUG: bool = False
     ENVIRONMENT: Literal["development", "staging", "production"] = "development"
-    SITE_URL: str = "http://localhost:8000"
+    # In backend/app/config.py
+
+    # Allow Pydantic to read BASE_URL and SITE_URL from environment variables,
+    # falling back to localhost ONLY if no environment variable is provided.
+    BASE_URL: str = Field(default="http://localhost:8000", validation_alias="BASE_URL")
+    SITE_URL: str = Field(default="http://localhost:8000", validation_alias="SITE_URL")
+    API_URL: str = Field(default="http://localhost:8000", validation_alias="API_URL")
     
     # ===========================================
     # Security Settings

@@ -87,7 +87,11 @@ def get_embed_url(request: Optional[Request] = None) -> str:
         return f"{scheme}://{host}"
     
     # Fallback for development
-    return "http://localhost:8000"
+    import os
+    from app.config import settings
+
+# Priority: BASE_URL env var > API_URL env var > settings.SITE_URL > request root url > default localhost
+    return os.getenv("BASE_URL") or os.getenv("API_URL") or getattr(settings, "BASE_URL", None) or getattr(settings, "SITE_URL", None) or str(request.base_url).rstrip("/")
 
 
 async def crawl_and_index_site(url: str, site_id: str, max_pages: int = 50):
