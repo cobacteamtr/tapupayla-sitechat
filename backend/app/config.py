@@ -7,7 +7,8 @@ from pydantic_settings import BaseSettings
 from pydantic import field_validator
 from functools import lru_cache
 from typing import Literal, Optional, List
-
+from pydantic import Field
+from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # App settings
