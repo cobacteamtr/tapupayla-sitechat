@@ -75,7 +75,6 @@ def get_widget_sri_hash() -> Optional[str]:
 
 def get_embed_url(request: Optional[Request] = None) -> str:
     """Get the base URL for embed scripts."""
-    # Priority: BASE_URL env var > API_URL env var > settings.SITE_URL > request root url
     configured = os.getenv("BASE_URL") or os.getenv("API_URL") or getattr(settings, "BASE_URL", None) or (settings.SITE_URL or "").rstrip("/")
     if configured:
         return configured.rstrip("/")
@@ -86,6 +85,16 @@ def get_embed_url(request: Optional[Request] = None) -> str:
         return f"{scheme}://{host}"
     
     return "https://sitechat-backend-zmlt.onrender.com"
+
+
+def _get_base_url(request: Request) -> str:
+    return (
+        os.getenv("BASE_URL")
+        or os.getenv("API_URL")
+        or getattr(settings, "BASE_URL", None)
+        or getattr(settings, "SITE_URL", None)
+        or str(request.base_url).rstrip("/")
+    )
 
 
 async def crawl_and_index_site(url: str, site_id: str, max_pages: int = 50):
