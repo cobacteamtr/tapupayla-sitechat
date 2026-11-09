@@ -75,23 +75,17 @@ def get_widget_sri_hash() -> Optional[str]:
 
 def get_embed_url(request: Optional[Request] = None) -> str:
     """Get the base URL for embed scripts."""
-    # Prefer configured URL from env; derive from request when available.
-    configured = (settings.SITE_URL or "").rstrip("/")
+    # Priority: BASE_URL env var > API_URL env var > settings.SITE_URL > request root url
+    configured = os.getenv("BASE_URL") or os.getenv("API_URL") or getattr(settings, "BASE_URL", None) or (settings.SITE_URL or "").rstrip("/")
     if configured:
-        return configured
+        return configured.rstrip("/")
 
     if request:
-        # Use the request's scheme and host
         scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
         host = request.headers.get("x-forwarded-host", request.url.netloc)
         return f"{scheme}://{host}"
     
-    # Fallback for development
-    import os
-    from app.config import settings
-
-# Priority: BASE_URL env var > API_URL env var > settings.SITE_URL > request root url > default localhost
-    return os.getenv("BASE_URL") or os.getenv("API_URL") or getattr(settings, "BASE_URL", None) or getattr(settings, "SITE_URL", None) or str(request.base_url).rstrip("/")
+    return "https://sitechat-backend-zmlt.onrender.com"
 
 
 async def crawl_and_index_site(url: str, site_id: str, max_pages: int = 50):
@@ -142,14 +136,6 @@ async def crawl_and_index_site(url: str, site_id: str, max_pages: int = 50):
         if job_id:
             await mongodb.update_crawl_job(job_id, status="failed", error=str(e))
 
-def _get_base_url(request: Request) -> str:
-    return (
-        os.getenv("BASE_URL")
-        or os.getenv("API_URL")
-        or getattr(settings, "BASE_URL", None)
-        or getattr(settings, "SITE_URL", None)
-        or str(request.base_url).rstrip("/")
-    )
 
 @router.post("/setup", response_model=SetupResponse)
 async def setup_chatbot(
@@ -175,16 +161,13 @@ async def setup_chatbot(
     
     mongodb = await get_mongodb()
     
-    # Use provider interface method
     existing = await mongodb.get_site(site_id)
     if existing and existing.get("user_id") != user_id:
         raise HTTPException(status_code=400, detail="This site is already registered by another user")
     
-    # Extract domain from URL for auto-whitelisting
     from app.core.security import extract_domain_from_url
     site_domain = extract_domain_from_url(url)
     
-    # Use provider interface to create or update site
     if existing:
         await mongodb.update_site(site_id, {
             "url": url,
@@ -214,7 +197,6 @@ async def setup_chatbot(
     api_url = get_embed_url(http_request)
     sri_hash = get_widget_sri_hash()
     
-    # Generate embed script with optional SRI
     if sri_hash:
         embed_script = f'''<!-- SiteChat Widget (Secure) -->
 <script>
@@ -254,19 +236,14 @@ async def setup_chatbot(
 async def get_site_status(site_id: str):
     """Get the status of a site's chatbot setup (public endpoint for widget)."""
     mongodb = await get_mongodb()
-    
-    # Use provider interface method
     site = await mongodb.get_site(site_id)
     
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
     
     site_url = site.get("url", "")
-    
-    # Try to get crawl job using provider interface
     job = await mongodb.get_crawl_job_by_url(site_url) if hasattr(mongodb, 'get_crawl_job_by_url') else None
     
-    # If provider doesn't have the method, return pending status
     if job is None and site_url:
         job = {"status": "pending", "pages_crawled": 0, "pages_indexed": 0}
     
@@ -284,8 +261,6 @@ async def get_site_status(site_id: str):
 async def get_embed_script(site_id: str, request: Request, include_sri: bool = True):
     """Get the embed script for a site (public endpoint)."""
     mongodb = await get_mongodb()
-    
-    # Use provider interface method
     site = await mongodb.get_site(site_id)
     
     if not site:
@@ -294,7 +269,6 @@ async def get_embed_script(site_id: str, request: Request, include_sri: bool = T
     api_url = get_embed_url(request)
     sri_hash = get_widget_sri_hash() if include_sri else None
     
-    # Generate embed script with optional SRI
     if sri_hash:
         embed_script = f'''<!-- SiteChat Widget (Secure) -->
 <script>
@@ -333,8 +307,6 @@ async def get_embed_script(site_id: str, request: Request, include_sri: bool = T
 async def get_widget_security_info(site_id: str, request: Request):
     """Get security information for the widget (SRI hash, allowed domains, etc.)."""
     mongodb = await get_mongodb()
-    
-    # Use provider interface method
     site = await mongodb.get_site(site_id)
     
     if not site:
@@ -343,7 +315,6 @@ async def get_widget_security_info(site_id: str, request: Request):
     api_url = get_embed_url(request)
     sri_hash = get_widget_sri_hash()
     
-    # Get security config
     config = site.get("config", {})
     security_config = config.get("security", {})
     
