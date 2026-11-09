@@ -2,14 +2,6 @@
 SiteChat - FastAPI Application
 
 A production-ready RAG chatbot platform with configurable providers.
-
-Provider Architecture:
-- LLM: Ollama, OpenAI, Anthropic, Azure (via LangChain)
-- Embeddings: HuggingFace, OpenAI, Ollama (via LangChain)
-- Vector Store: FAISS, Chroma, Pinecone, Qdrant (via LangChain)
-- Database: MongoDB (extensible to PostgreSQL)
-- Storage: Local (extensible to S3, GCS)
-- Cache: Memory (extensible to Redis)
 """
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
@@ -46,6 +38,16 @@ from app.services.auth import AuthService
 from app.services.scheduler import get_scheduler
 
 
+# Custom StaticFiles class to inject CORS headers for embeddable widget files
+class CORSStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        return response
+
+
 # Configure logging
 logger.remove()
 logger.add(
@@ -68,14 +70,12 @@ limiter = Limiter(key_func=get_client_ip)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events."""
-    # Startup
     logger.info(f"Starting {settings.APP_NAME}...")
     logger.info("=" * 50)
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Debug Mode: {settings.DEBUG}")
     logger.info("=" * 50)
     
-    # Security checks
     log_security_warnings()
     
     logger.info("Provider Configuration:")
@@ -88,19 +88,15 @@ async def lifespan(app: FastAPI):
     logger.info("=" * 50)
     
     try:
-        # Initialize MongoDB
         mongodb = await get_mongodb()
         logger.info("MongoDB connected")
         
-        # Initialize Vector Store
         get_vector_store()
         logger.info("Vector store initialized")
         
-        # Ensure default admin exists (if configured)
         auth_service = AuthService(mongodb)
         await auth_service.ensure_admin_exists()
         
-        # Initialize and start the scheduler
         from app.routes.schedule import _execute_crawl_job
         scheduler = get_scheduler()
         scheduler.set_dependencies(mongodb, _execute_crawl_job)
@@ -115,11 +111,9 @@ async def lifespan(app: FastAPI):
     
     yield
     
-    # Shutdown
     logger.info(f"Shutting down {settings.APP_NAME}...")
     
     try:
-        # Shutdown scheduler first
         scheduler = get_scheduler()
         scheduler.shutdown()
         logger.info("Crawl scheduler stopped")
@@ -144,28 +138,23 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Security middleware (order matters - outermost first)
-# 1. Security headers
+# Security middleware
 app.add_middleware(SecurityHeadersMiddleware)
-
-# 2. Request validation
 app.add_middleware(RequestValidationMiddleware)
 
-# 3. Trusted host middleware (only in production)
 if settings.is_production and settings.TRUSTED_HOSTS != "*":
     app.add_middleware(
         TrustedHostMiddleware,
         allowed_hosts=settings.trusted_hosts_list
     )
 
-# 4. CORS middleware - using configurable origins
+# CORS middleware - allowing all origins for widget compatibility
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
-    allow_origin_regex=settings.cors_origin_regex,
-    allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"],
+    allow_headers=["*"],
     expose_headers=["X-Total-Count", "X-Page", "X-Per-Page"],
 )
 
@@ -187,7 +176,6 @@ app.include_router(qa_router)
 app.include_router(leads_router)
 
 # Serve static files (frontend)
-# Get the absolute path to the frontend directory
 backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 project_root = os.path.dirname(backend_dir)
 frontend_path = os.path.join(project_root, "frontend")
@@ -202,7 +190,6 @@ def _html_file_response(filename: str, *, widget_sri: Optional[str] = None) -> H
 
 
 if os.path.exists(frontend_path):
-    # Mount CSS and JS directories
     css_path = os.path.join(frontend_path, "css")
     js_path = os.path.join(frontend_path, "js")
     widget_path = os.path.join(frontend_path, "widget")
@@ -212,12 +199,12 @@ if os.path.exists(frontend_path):
     if os.path.exists(js_path):
         app.mount("/js", StaticFiles(directory=js_path), name="js")
     if os.path.exists(widget_path):
-        app.mount("/widget", StaticFiles(directory=widget_path), name="widget")
+        # Use CORSStaticFiles to allow external/sandboxed domains to fetch chatbot.js
+        app.mount("/widget", CORSStaticFiles(directory=widget_path), name="widget")
 
 
 @app.get("/")
 async def root():
-    """Serve marketing landing page, or dashboard fallback if landing missing."""
     landing_path = os.path.join(frontend_path, "landing.html")
     if os.path.exists(landing_path):
         return _html_file_response("landing.html", widget_sri=get_widget_sri_hash())
@@ -240,7 +227,6 @@ async def root():
 @app.get("/app")
 @app.get("/dashboard")
 async def dashboard_app():
-    """Serve authenticated SPA dashboard."""
     frontend_index = os.path.join(frontend_path, "index.html")
     if os.path.exists(frontend_index):
         return _html_file_response("index.html")
@@ -249,14 +235,12 @@ async def dashboard_app():
 
 @app.get("/demo")
 async def demo_page():
-    """Redirect to landing page — the landing page is the demo."""
     from fastapi.responses import RedirectResponse
     return RedirectResponse(url="/#live-demo", status_code=301)
 
 
 @app.get("/landing-neo")
 async def landing_neo_page():
-    """Serve the neobrutalism landing page variant."""
     path = os.path.join(frontend_path, "landing-neo.html")
     if os.path.exists(path):
         return FileResponse(path)
@@ -265,7 +249,6 @@ async def landing_neo_page():
 
 @app.get("/login")
 async def login_page():
-    """Serve the login page."""
     login_path = os.path.join(frontend_path, "login.html")
     if os.path.exists(login_path):
         return _html_file_response("login.html")
@@ -274,7 +257,6 @@ async def login_page():
 
 @app.get("/api")
 async def api_info():
-    """API information."""
     return {
         "name": settings.APP_NAME,
         "version": "1.0.0",
