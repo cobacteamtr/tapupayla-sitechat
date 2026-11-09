@@ -13,6 +13,13 @@
     title: "TapuPaylaş Asistan"
   };
 
+  // Generate or retrieve persistent session ID for the user
+  let sessionId = localStorage.getItem("sitechat_session_id");
+  if (!sessionId) {
+    sessionId = "sess_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    localStorage.setItem("sitechat_session_id", sessionId);
+  }
+
   function adjustHexColor(hex, amount) {
     let usePound = false;
     if (hex[0] == "#") {
@@ -30,7 +37,7 @@
   }
 
   function escapeHtml(str) {
-    return str.replace(/&/g, "&amp.").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
   }
 
   const baseWidgetCss = `
@@ -55,6 +62,8 @@
       justify-content: center;
       box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
       z-index: 99998;
+      color: white;
+      font-size: 24px;
     }
     .sitechat-window {
       position: fixed;
@@ -87,6 +96,11 @@
       align-items: center;
       gap: 10px;
     }
+    .sitechat-header h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: white !important;
+    }
     .sitechat-messages {
       flex: 1;
       overflow-y: auto;
@@ -109,6 +123,7 @@
       font-size: 14px;
       line-height: 1.6;
       word-wrap: break-word;
+      max-width: 80%;
     }
     .sitechat-message.user {
       background: linear-gradient(135deg, ${config.primaryColor}, ${adjustHexColor(config.primaryColor, -25)}) !important;
@@ -150,6 +165,10 @@
       border: none;
       color: white;
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
     }
   `;
 
@@ -167,11 +186,11 @@
       </div>
       <div class="sitechat-messages" id="sitechat-messages">
         <div class="sitechat-message-wrapper bot">
-          <div class="sitechat-message bot">Hello! How can I help you with TapuPaylaş today?</div>
+          <div class="sitechat-message bot">Merhaba! TapuPaylaş platformu hakkında size nasıl yardımcı olabilirim?</div>
         </div>
       </div>
       <div class="sitechat-input-wrapper">
-        <input type="text" class="sitechat-input" id="sitechat-input-field" placeholder="Type your message..." />
+        <input type="text" class="sitechat-input" id="sitechat-input-field" placeholder="Mesajınızı yazın..." />
         <button class="sitechat-send" id="sitechat-send-btn">➤</button>
       </div>
     </div>
@@ -192,7 +211,7 @@
     const text = inputField.value.trim();
     if (!text) return;
 
-    // User message
+    // Append user message to UI
     const userMsgWrapper = document.createElement("div");
     userMsgWrapper.className = "sitechat-message-wrapper user";
     userMsgWrapper.innerHTML = `<div class="sitechat-message user">${escapeHtml(text)}</div>`;
@@ -204,10 +223,20 @@
       const response = await fetch(`${config.apiUrl}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ site_id: config.siteId, message: text })
+        body: JSON.stringify({
+          site_id: config.siteId,
+          message: text,
+          session_id: sessionId
+        })
       });
+
+      if (!response.ok) {
+        throw new Error("Server returned status " + response.status);
+      }
+
       const data = await response.json();
-      const reply = data.response || data.answer || "I received your message.";
+      // Handle backend response fields (typically data.answer or data.response)
+      const reply = data.answer || data.response || "Yanıt alındı.";
 
       const botMsgWrapper = document.createElement("div");
       botMsgWrapper.className = "sitechat-message-wrapper bot";
@@ -215,7 +244,12 @@
       messagesContainer.appendChild(botMsgWrapper);
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
     } catch (err) {
-      console.error(err);
+      console.error("Chat error:", err);
+      const errorMsgWrapper = document.createElement("div");
+      errorMsgWrapper.className = "sitechat-message-wrapper bot";
+      errorMsgWrapper.innerHTML = `<div class="sitechat-message bot">Üzgünüm, şu anda yanıt alınamadı. Lütfen tekrar deneyin.</div>`;
+      messagesContainer.appendChild(errorMsgWrapper);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
   }
 
