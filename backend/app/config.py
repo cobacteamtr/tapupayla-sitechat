@@ -2,26 +2,24 @@
 Configuration settings for the SiteChat Platform.
 Supports multiple providers for LLM, embeddings, vector store, database, storage, and cache.
 """
+import os
 import secrets
 from pydantic_settings import BaseSettings
 from pydantic import field_validator
 from functools import lru_cache
 from typing import Literal, Optional, List
 from pydantic import Field
-from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # App settings
     APP_NAME: str = "SiteChat"
     DEBUG: bool = False
     ENVIRONMENT: Literal["development", "staging", "production"] = "development"
-    # In backend/app/config.py
-
-    # Allow Pydantic to read BASE_URL and SITE_URL from environment variables,
-    # falling back to localhost ONLY if no environment variable is provided.
-    BASE_URL: str = os.getenv("BASE_URL", "http://localhost:8000")
-    SITE_URL: str = os.getenv("SITE_URL", "http://localhost:8000")
-    API_URL: str = os.getenv("API_URL", "http://localhost:8000")
+    
+    # URL configurations (automatically mapped from environment variables or .env)
+    BASE_URL: str = "http://localhost:8000"
+    SITE_URL: str = "http://localhost:8000"
+    API_URL: str = "http://localhost:8000"
     
     # ===========================================
     # Security Settings
