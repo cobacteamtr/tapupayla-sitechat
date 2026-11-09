@@ -14,10 +14,17 @@
   };
 
   // Generate or retrieve persistent session ID for the user
-  let sessionId = localStorage.getItem("sitechat_session_id");
-  if (!sessionId) {
-    sessionId = "sess_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    localStorage.setItem("sitechat_session_id", sessionId);
+  let sessionId = "sess_default";
+  try {
+    sessionId = localStorage.getItem("sitechat_session_id");
+    if (!sessionId) {
+      sessionId = "sess_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      localStorage.setItem("sitechat_session_id", sessionId);
+    }
+  } catch (e) {
+    // Fallback for sandboxed frames where localStorage is restricted
+    sessionId = window._sitechat_fallback_session || ("sess_" + Math.random().toString(36).substring(2, 15));
+    window._sitechat_fallback_session = sessionId;
   }
 
   function adjustHexColor(hex, amount) {
