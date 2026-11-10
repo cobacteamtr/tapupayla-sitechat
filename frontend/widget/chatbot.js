@@ -30,6 +30,43 @@
     return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
   }
 
+  // Format bot response: convert **bold** and bullet lists (- or *) into proper HTML
+  function formatBotResponse(text) {
+    let safe = escapeHtml(text);
+    
+    // Convert **bold** to <strong>
+    safe = safe.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+
+    let lines = safe.split("\n");
+    let inList = false;
+    let htmlLines = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      let line = lines[i].trim();
+      if (line.startsWith("- ") || line.startsWith("* ")) {
+        if (!inList) {
+          htmlLines.push("<ul style='margin: 6px 0 6px 18px; padding: 0; list-style-type: disc;'>");
+          inList = true;
+        }
+        let content = line.substring(2);
+        htmlLines.push(`<li style='margin-bottom: 4px;'>${content}</li>`);
+      } else {
+        if (inList) {
+          htmlLines.push("</ul>");
+          inList = false;
+        }
+        if (line.length > 0) {
+          htmlLines.push(`<p style='margin-bottom: 6px;'>${line}</p>`);
+        }
+      }
+    }
+    if (inList) {
+      htmlLines.push("</ul>");
+    }
+
+    return htmlLines.join("");
+  }
+
   // Inject Google Fonts for Nokora
   const fontLink = document.createElement("link");
   fontLink.rel = "stylesheet";
@@ -45,7 +82,7 @@
     }
     .sitechat-toggle {
       position: fixed;
-      bottom: 96px; /* Placed above the WhatsApp icon */
+      bottom: 96px;
       right: 24px;
       width: 56px;
       height: 56px;
@@ -67,7 +104,7 @@
     }
     .sitechat-window {
       position: fixed;
-      bottom: 164px; /* Stacked cleanly above the elevated toggle */
+      bottom: 164px;
       right: 24px;
       width: 380px;
       height: 520px;
@@ -138,7 +175,7 @@
       border: 1px solid #e5e5e5 !important;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     }
-    .sitechat-message.bot p, .sitechat-message.bot span, .sitechat-message.bot div, .sitechat-message.bot li {
+    .sitechat-message.bot p, .sitechat-message.bot span, .sitechat-message.bot div, .sitechat-message.bot li, .sitechat-message.bot strong {
       color: #222222 !important;
     }
     .sitechat-input-wrapper {
@@ -237,7 +274,8 @@
 
       const botMsgWrapper = document.createElement("div");
       botMsgWrapper.className = "sitechat-message-wrapper bot";
-      botMsgWrapper.innerHTML = `<div class="sitechat-message bot">${escapeHtml(reply)}</div>`;
+      // Use formatBotResponse instead of raw text so lists and bolding render properly
+      botMsgWrapper.innerHTML = `<div class="sitechat-message bot">${formatBotResponse(reply)}</div>`;
       messagesContainer.appendChild(botMsgWrapper);
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
     } catch (err) {
