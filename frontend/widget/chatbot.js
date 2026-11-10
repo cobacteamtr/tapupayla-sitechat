@@ -9,11 +9,11 @@
   const config = {
     siteId: siteId || "6aef384a5764a4928998882c",
     apiUrl: apiUrl,
-    primaryColor: "#6366f1",
-    title: "TapuPaylaş Asistan"
+    primaryColor: "#222222",
+    backgroundColor: "#f8f8f8",
+    title: "TapuPayla Asistan"
   };
 
-  // Generate or retrieve persistent session ID for the user
   let sessionId = "sess_default";
   try {
     sessionId = localStorage.getItem("sitechat_session_id");
@@ -22,73 +22,67 @@
       localStorage.setItem("sitechat_session_id", sessionId);
     }
   } catch (e) {
-    // Fallback for sandboxed frames where localStorage is restricted
     sessionId = window._sitechat_fallback_session || ("sess_" + Math.random().toString(36).substring(2, 15));
     window._sitechat_fallback_session = sessionId;
-  }
-
-  function adjustHexColor(hex, amount) {
-    let usePound = false;
-    if (hex[0] == "#") {
-      hex = hex.slice(1);
-      usePound = true;
-    }
-    let num = parseInt(hex, 16);
-    let r = (num >> 16) + amount;
-    if (r > 255) r = 255; else if (r < 0) r = 0;
-    let b = ((num >> 8) & 0x00ff) + amount;
-    if (b > 255) b = 255; else if (b < 0) b = 0;
-    let g = (num & 0x0000ff) + amount;
-    if (g > 255) g = 255; else if (g < 0) g = 0;
-    return (usePound ? "#" : "") + (g | (b << 8) | (r << 16)).toString(16).padStart(6, "0");
   }
 
   function escapeHtml(str) {
     return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
   }
 
+  // Inject Google Fonts for Nokora
+  const fontLink = document.createElement("link");
+  fontLink.rel = "stylesheet";
+  fontLink.href = "https://fonts.googleapis.com/css2?family=Nokora:wght@400;700&display=swap";
+  document.head.appendChild(fontLink);
+
   const baseWidgetCss = `
     .sitechat-widget * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Nokora', sans-serif !important;
     }
     .sitechat-toggle {
       position: fixed;
-      bottom: 24px;
+      bottom: 96px; /* Placed above the WhatsApp icon */
       right: 24px;
-      width: 60px;
-      height: 60px;
+      width: 56px;
+      height: 56px;
       border-radius: 50%;
-      background: linear-gradient(135deg, ${config.primaryColor}, ${adjustHexColor(config.primaryColor, -20)});
+      background: #222222 !important;
       border: none;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
       z-index: 99998;
-      color: white;
-      font-size: 24px;
+      color: #ffffff;
+      font-size: 22px;
+      transition: transform 0.2s ease;
+    }
+    .sitechat-toggle:hover {
+      transform: scale(1.05);
     }
     .sitechat-window {
       position: fixed;
-      bottom: 100px;
+      bottom: 164px; /* Stacked cleanly above the elevated toggle */
       right: 24px;
-      width: 400px;
-      height: 560px;
-      background: #ffffff !important;
+      width: 380px;
+      height: 520px;
+      background: #f8f8f8 !important;
       border-radius: 16px;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
       display: flex;
       flex-direction: column;
       overflow: hidden;
       z-index: 99999;
       opacity: 0;
       visibility: hidden;
-      transform: translateY(20px) scale(0.95);
+      transform: translateY(15px) scale(0.95);
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      border: 1px solid #e0e0e0;
     }
     .sitechat-window.open {
       opacity: 1;
@@ -96,63 +90,63 @@
       transform: translateY(0) scale(1);
     }
     .sitechat-header {
-      background: linear-gradient(135deg, ${config.primaryColor}, ${adjustHexColor(config.primaryColor, -20)});
-      color: white !important;
-      padding: 20px 24px;
+      background: #222222 !important;
+      color: #ffffff !important;
+      padding: 18px 20px;
       display: flex;
       align-items: center;
-      gap: 10px;
+      justify-content: space-between;
     }
     .sitechat-header h3 {
       font-size: 16px;
-      font-weight: 600;
-      color: white !important;
+      font-weight: 700;
+      color: #ffffff !important;
     }
     .sitechat-messages {
       flex: 1;
       overflow-y: auto;
-      padding: 20px;
+      padding: 16px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
-      background: #f8fafc !important;
+      gap: 12px;
+      background: #f8f8f8 !important;
     }
     .sitechat-message-wrapper {
       display: flex;
-      gap: 10px;
+      gap: 8px;
     }
     .sitechat-message-wrapper.user {
       flex-direction: row-reverse;
     }
     .sitechat-message {
-      padding: 14px 18px;
-      border-radius: 18px;
+      padding: 12px 16px;
+      border-radius: 14px;
       font-size: 14px;
-      line-height: 1.6;
+      line-height: 1.5;
       word-wrap: break-word;
-      max-width: 80%;
+      max-width: 85%;
     }
     .sitechat-message.user {
-      background: linear-gradient(135deg, ${config.primaryColor}, ${adjustHexColor(config.primaryColor, -25)}) !important;
-      color: white !important;
-      border-bottom-right-radius: 6px;
+      background: #222222 !important;
+      color: #ffffff !important;
+      border-bottom-right-radius: 4px;
     }
     .sitechat-message.bot {
       background: #ffffff !important;
-      color: #1e293b !important;
-      border-bottom-left-radius: 6px;
-      border: 1px solid #e2e8f0 !important;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      color: #222222 !important;
+      border-bottom-left-radius: 4px;
+      border: 1px solid #e5e5e5 !important;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     }
     .sitechat-message.bot p, .sitechat-message.bot span, .sitechat-message.bot div, .sitechat-message.bot li {
-      color: #1e293b !important;
+      color: #222222 !important;
     }
     .sitechat-input-wrapper {
-      padding: 16px;
-      background: white !important;
-      border-top: 1px solid #e5e7eb;
+      padding: 12px 16px;
+      background: #ffffff !important;
+      border-top: 1px solid #e5e5e5;
       display: flex;
-      gap: 10px;
+      gap: 8px;
     }
     .sitechat-input {
       flex: 1;
@@ -161,21 +155,21 @@
       padding: 10px 12px;
       font-size: 14px;
       outline: none;
-      color: #1e293b !important;
+      color: #222222 !important;
       background: #ffffff !important;
     }
     .sitechat-send {
-      width: 44px;
-      height: 44px;
+      width: 40px;
+      height: 40px;
       border-radius: 8px;
-      background: ${config.primaryColor};
+      background: #222222;
       border: none;
-      color: white;
+      color: #ffffff;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 16px;
+      font-size: 15px;
     }
   `;
 
@@ -193,7 +187,7 @@
       </div>
       <div class="sitechat-messages" id="sitechat-messages">
         <div class="sitechat-message-wrapper bot">
-          <div class="sitechat-message bot">Merhaba! TapuPaylaş platformu hakkında size nasıl yardımcı olabilirim?</div>
+          <div class="sitechat-message bot">Merhaba! TapuPayla platformu hakkında size nasıl yardımcı olabilirim?</div>
         </div>
       </div>
       <div class="sitechat-input-wrapper">
@@ -218,7 +212,6 @@
     const text = inputField.value.trim();
     if (!text) return;
 
-    // Append user message to UI
     const userMsgWrapper = document.createElement("div");
     userMsgWrapper.className = "sitechat-message-wrapper user";
     userMsgWrapper.innerHTML = `<div class="sitechat-message user">${escapeHtml(text)}</div>`;
@@ -237,12 +230,9 @@
         })
       });
 
-      if (!response.ok) {
-        throw new Error("Server returned status " + response.status);
-      }
+      if (!response.ok) throw new Error("Server status " + response.status);
 
       const data = await response.json();
-      // Handle backend response fields (typically data.answer or data.response)
       const reply = data.answer || data.response || "Yanıt alındı.";
 
       const botMsgWrapper = document.createElement("div");
